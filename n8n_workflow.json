@@ -1,0 +1,278 @@
+{
+  "name": "Attendance Email Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 11,
+              "triggerAtMinute": 59
+            }
+          ]
+        }
+      },
+      "id": "961db195-3920-4c40-a033-6433044496d9",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1152,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1RHtPDxUnDVcuSFu18fpC1hN3fH9eVEXiRyUGbluqIPo",
+          "mode": "list",
+          "cachedResultName": "Attendance Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/................."
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/.................."
+        },
+        "options": {}
+      },
+      "id": "d831bcf3-f6de-4654-98b3-28c9c226d1f0",
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -944,
+        -96
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst result = [];\n\n// Today's date — MM/DD/YYYY format e banao\nconst now = new Date();\nconst mm = String(now.getMonth() + 1).padStart(2, '0');\nconst dd = String(now.getDate()).padStart(2, '0');\nconst yyyy = now.getFullYear();\nconst todayStr = `${mm}/${dd}/${yyyy}`; // e.g. \"03/16/2026\"\n\nfor (const item of items) {\n  const row = item.json;\n  const keys = Object.keys(row);\n\n  // Sob date column filter koro\n  const dateKeys = keys.filter(k => /\\d{1,2}\\/\\d{1,2}\\/\\d{4}/.test(k));\n  if (dateKeys.length === 0) continue;\n\n  // Exact today's column khojo\n  const todayKey = dateKeys.find(k => {\n    // Sheet e \"3/16/2026\" ba \"03/16/2026\" — dono handle korbe\n    const parts = k.split('/');\n    const kMM = parts[0].padStart(2, '0');\n    const kDD = parts[1].padStart(2, '0');\n    const kYYYY = parts[2];\n    return `${kMM}/${kDD}/${kYYYY}` === todayStr;\n  });\n\n  // Jodi aajker column sheet e na thake — skip\n  if (!todayKey) continue;\n\n  const rawStatus = (row[todayKey] || '').toString().trim();\n  const statusLower = rawStatus.toLowerCase();\n\n  let emailType = null;\n\n  if (statusLower.includes('absent') || rawStatus === '') {\n    emailType = 'absent';\n  } else if (statusLower.includes('late')) {\n    emailType = 'late';\n  } else if (statusLower.includes('leave')) {\n    emailType = 'leave';\n  }\n\n  if (!emailType) continue; // Present hole skip\n\n  result.push({\n    json: {\n      emp_id: row['EMP ID'] || '',\n      name: row['Name'] || '',\n      email: row['Email'] || '',\n      date: todayKey,\n      status: rawStatus || 'Absent',\n      emailType: emailType\n    }\n  });\n}\n\nreturn result;"
+      },
+      "id": "17a11c2d-5013-4cc5-a94a-f8c18ccf6566",
+      "name": "Find Absent or Late",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond_late",
+              "leftValue": "={{ $json.emailType }}",
+              "rightValue": "late",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "37d844e6-5d09-468d-8dec-c811457bacae",
+      "name": "Is Late?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond_absent",
+              "leftValue": "={{ $json.emailType }}",
+              "rightValue": "absent",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bb02bc49-f415-4a9f-b483-aa86e29711e3",
+      "name": "Is Absent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=⚠️ Late Attendance Alert — {{ $json.date }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #f0a500; border-radius: 8px; overflow: hidden;\">\n  <div style=\"background: #f0a500; padding: 20px;\">\n    <h2 style=\"color: white; margin: 0;\">⚠️ Late Attendance Notice</h2>\n  </div>\n  <div style=\"padding: 24px; background: #fff;\">\n    <p style=\"font-size: 16px;\">Dear <strong>{{ $json.name }}</strong>,</p>\n    <p style=\"font-size: 15px; color: #333;\">আমরা লক্ষ্য করেছি যে আপনি <strong>{{ $json.date }}</strong> তারিখে <span style=\"color: #f0a500; font-weight: bold;\">Late</span> হয়েছেন।</p>\n    <div style=\"background: #fff8e1; border-left: 4px solid #f0a500; padding: 12px 16px; margin: 16px 0; border-radius: 4px;\">\n      <p style=\"margin: 0; font-size: 14px;\"><strong>Employee ID:</strong> {{ $json.emp_id }}</p>\n      <p style=\"margin: 4px 0 0; font-size: 14px;\"><strong>Date:</strong> {{ $json.date }}</p>\n      <p style=\"margin: 4px 0 0; font-size: 14px;\"><strong>Status:</strong> Late</p>\n    </div>\n    <p style=\"font-size: 14px; color: #555;\">অনুগ্রহ করে সময়মতো অফিসে আসার চেষ্টা করুন। বারবার দেরি হলে এটি আপনার performance review-তে প্রভাব ফেলতে পারে।</p>\n    <p style=\"font-size: 14px; color: #555;\">যদি কোনো বিশেষ কারণ থাকে, অনুগ্রহ করে HR-এর সাথে যোগাযোগ করুন।</p>\n    <p style=\"margin-top: 24px; font-size: 14px;\">ধন্যবাদ,<br><strong>HR Department</strong></p>\n  </div>\n  <div style=\"background: #f9f9f9; padding: 12px 24px; text-align: center;\">\n    <p style=\"font-size: 12px; color: #999; margin: 0;\">This is an automated attendance notification. Please do not reply to this email.</p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "4c5d909f-c126-4d0d-9be3-85ee998d1fc3",
+      "name": "Email — Late Warning",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -96,
+        -192
+      ],
+      "webhookId": "28d52a3a-f3ab-4a59-a05a-b5b30b0bfeec",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y6JQL0D1RdliHuXk",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=🚨 Absent Alert — {{ $json.date }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e53935; border-radius: 8px; overflow: hidden;\">\n  <div style=\"background: #e53935; padding: 20px;\">\n    <h2 style=\"color: white; margin: 0;\">🚨 Absence Notification</h2>\n  </div>\n  <div style=\"padding: 24px; background: #fff;\">\n    <p style=\"font-size: 16px;\">Dear <strong>{{ $json.name }}</strong>,</p>\n    <p style=\"font-size: 15px; color: #333;\">আমাদের রেকর্ড অনুযায়ী আপনি <strong>{{ $json.date }}</strong> তারিখে <span style=\"color: #e53935; font-weight: bold;\">Absent</span> ছিলেন।</p>\n    <div style=\"background: #ffebee; border-left: 4px solid #e53935; padding: 12px 16px; margin: 16px 0; border-radius: 4px;\">\n      <p style=\"margin: 0; font-size: 14px;\"><strong>Employee ID:</strong> {{ $json.emp_id }}</p>\n      <p style=\"margin: 4px 0 0; font-size: 14px;\"><strong>Date:</strong> {{ $json.date }}</p>\n      <p style=\"margin: 4px 0 0; font-size: 14px;\"><strong>Status:</strong> Absent</p>\n    </div>\n    <p style=\"font-size: 14px; color: #555;\">যদি আপনার অনুপস্থিতির কোনো বৈধ কারণ থাকে, অনুগ্রহ করে <strong>২৪ ঘণ্টার মধ্যে</strong> HR বিভাগকে জানান।</p>\n    <p style=\"font-size: 14px; color: #555;\">অনুমোদন ছাড়া অনুপস্থিতি আপনার salary এবং performance-এ প্রভাব ফেলতে পারে।</p>\n    <p style=\"margin-top: 24px; font-size: 14px;\">ধন্যবাদ,<br><strong>HR Department</strong></p>\n  </div>\n  <div style=\"background: #f9f9f9; padding: 12px 24px; text-align: center;\">\n    <p style=\"font-size: 12px; color: #999; margin: 0;\">This is an automated attendance notification. Please do not reply to this email.</p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "91680d92-4596-4991-953e-515e114afa2a",
+      "name": "Email — Absent Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -96,
+        48
+      ],
+      "webhookId": "6217d088-44af-4ea2-b25c-263f3d537174",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y6JQL0D1RdliHuXk",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        288
+      ],
+      "id": "4ca0acfc-a2c8-45c6-8f8f-6aab813c94bc",
+      "name": "No Operation, do nothing"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Find Absent or Late",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Absent or Late": {
+      "main": [
+        [
+          {
+            "node": "Is Late?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Late?": {
+      "main": [
+        [
+          {
+            "node": "Email — Late Warning",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Absent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Absent?": {
+      "main": [
+        [
+          {
+            "node": "Email — Absent Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "302f5ce5-5105-4dcc-86c6-abcdaf8dbed0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1cf9b1bc467d605f97326bf678b2791a2ec92aff9a6b19fb5cb12fc6dc13b459"
+  },
+  "id": "LP4PdDF07dAqlqYO",
+  "tags": []
+}

@@ -4,10 +4,17 @@
 An automated workflow built with **n8n** that monitors employee attendance from a Google Sheet daily and sends personalized email alerts to employees who are **Late**, **Absent**, or on **Leave** — with different messages for each status.
 
 ---
+<img width="1253" height="560" alt="Screenshot 2026-03-17 003440" src="https://github.com/user-attachments/assets/05894caa-b1be-4d13-bfb0-4226f02c2da0" />
+
+
+
+<img width="1898" height="937" alt="Screenshot 2026-03-17 004314" src="https://github.com/user-attachments/assets/41e6f0bd-eb95-4a8b-8799-99e462f61bdd" />
+
+
 
 ## ✨ Features
 
-- 🕘 **Daily Auto-Run** — Triggers every morning at 9:00 AM automatically
+- 🕘 **Daily Auto-Run** — Triggers every morning at 11:00 AM automatically
 - 📅 **Smart Date Detection** — Finds today's exact date column from the sheet (handles future empty columns correctly)
 - 📧 **3 Different Email Templates** — Unique messages for Late, Absent, and Leave statuses
 - ✅ **Skips Present employees** — No unnecessary emails
@@ -31,9 +38,7 @@ Your sheet must follow this structure:
 
 | EMP ID | Name | Email | 03/16/2026 | 03/17/2026 | 03/18/2026 |
 |--------|------|-------|------------|------------|------------|
-| 35039 | Ariful Islam | arif@gmail.com | Present | Late | |
-| 35046 | Ashraf Ahmed | ashraf@gmail.com | Present | Present | |
-| 35048 | Shamura Ahmad | shamura@gmail.com | Absent | | |
+| XXXXX | Md Mehedi Hasan | mehedi@gmail.com | Present | Late | |
 
 **Column rules:**
 - Columns A, B, C → `EMP ID`, `Name`, `Email` (exact spelling required)
@@ -45,7 +50,7 @@ Your sheet must follow this structure:
 ## ⚙️ How It Works
 
 ```
-Schedule Trigger (9AM)
+Schedule Trigger (11AM)
         │
         ▼
 Google Sheets — Read all rows
@@ -110,7 +115,7 @@ Code Node — Find today's date column → check each employee's status
 ### Step 4 — Activate
 1. Click **"Save"**
 2. Toggle the workflow to **Active**
-3. Done! It will run every morning at 9:00 AM ✅
+3. Done! It will run every morning at 11:00 AM ✅
 
 ---
 
@@ -172,7 +177,7 @@ This ensures future empty columns are ignored and only today's data is processed
 - The workflow skips employees marked as `Present` or `Weekend` — no email is sent
 - Empty status cells are treated as `Absent`
 - All emails are sent from the authenticated Gmail account
-- n8n timezone should match your local timezone for accurate 9 AM trigger
+- n8n timezone should match your local timezone for accurate 11 AM trigger
 
 ---
 
